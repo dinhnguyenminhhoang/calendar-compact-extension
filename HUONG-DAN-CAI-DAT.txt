@@ -1,0 +1,63 @@
+📅 HƯỚNG DẪN CÀI ĐẶT - LỊCH HỌC & LÀM VIỆC PRO (COMPACT)
+
+✨ PHIÊN BẢN MỚI - COMPACT EDITION
+- Kích thước: 800x550px (vừa khít popup)
+- Không scroll
+- Giao diện gọn gàng hơn
+- Hiệu suất tốt hơn
+
+📦 CÀI ĐẶT:
+
+1. Giải nén thư mục này (nếu đang trong file zip)
+
+2. Mở Chrome và gõ: chrome://extensions/
+
+3. Bật "Developer mode" ở góc trên phải
+
+4. Click "Load unpacked"
+
+5. Chọn thư mục "calendar-compact-extension" này
+
+6. Xong! Click vào icon extension để sử dụng
+
+🎯 SỬ DỤNG NHANH:
+
+✓ Click vào ô trống → Tạo sự kiện nhanh
+✓ Click vào sự kiện → Xem/Sửa/Xóa
+✓ Nút ➕ → Thêm sự kiện chi tiết
+✓ Nút ⚙️ → Cài đặt
+✓ ◀ ▶ → Chuyển tuần
+✓ "Hôm nay" → Về tuần hiện tại
+
+📱 TÍNH NĂNG NỔI BẬT:
+
+• Xem lịch cả tuần (T2-CN)
+• Thêm sự kiện bằng 1 click
+• Lặp lại hàng tuần tự động
+• 6 màu sắc đẹp mắt
+• Nhắc nhở thông minh
+• Xuất/Nhập dữ liệu
+• Thống kê chi tiết
+
+💡 MẸO:
+
+- Giảm giờ hiển thị (Settings) nếu cần ít giờ hơn
+- Dùng màu khác nhau cho các môn học/công việc
+- Xuất dữ liệu định kỳ để backup
+- Bật thông báo cho sự kiện quan trọng
+
+⚠️ LƯU Ý:
+
+- Extension hoạt động offline
+- Dữ liệu lưu trên máy bạn
+- An toàn và riêng tư
+
+🐛 GẶP VẤN ĐỀ?
+
+1. Reload extension (tắt/bật lại)
+2. Xóa cache trình duyệt
+3. Check console (F12) để xem lỗi
+
+---
+Version 2.3.0 - Compact Edition
+Made with ❤️
