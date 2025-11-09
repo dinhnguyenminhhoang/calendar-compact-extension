@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Lịch Học & Làm Việc Pro",
-  "version": "2.3.2",
-  "description": "Quản lý lịch chuyên nghiệp với giao diện tuần compact",
+  "version": "3.0.0",
+  "description": "Quản lý lịch chuyên nghiệp với tích hợp Google Classroom & Calendar",
   "icons": {
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",
@@ -19,9 +19,21 @@
   "permissions": [
     "storage",
     "notifications",
-    "alarms"
+    "alarms",
+    "identity"
   ],
+  "oauth2": {
+    "client_id": "806570146775-9gglt0s2f7glnhakema6rv6p6aag3hfv.apps.googleusercontent.com",
+    "scopes": [
+      "https://www.googleapis.com/auth/classroom.courses.readonly",
+      "https://www.googleapis.com/auth/classroom.coursework.me.readonly",
+      "https://www.googleapis.com/auth/calendar.readonly"
+    ]
+  },
   "background": {
     "service_worker": "background.js"
-  }
+  },
+  "host_permissions": [
+    "https://www.googleapis.com/*"
+  ]
 }

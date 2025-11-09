@@ -4,16 +4,21 @@ let events = [];
 let editingEventId = null;
 let selectedDate = null;
 let selectedTime = null;
+let googleIntegration = null;
 
 // Settings
 let settings = {
     startHour: 7,
     endHour: 22,
-    enableNotifications: true
+    enableNotifications: true,
+    syncClassroom: false,
+    syncCalendar: false,
+    googleConnected: false
 };
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
+    googleIntegration = new GoogleIntegration();
     loadSettings();
     loadEvents();
     setCurrentWeek();
@@ -23,6 +28,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initEventListeners();
     updateCurrentTimeLine();
     setInterval(updateCurrentTimeLine, 60000);
+    updateGoogleStatus();
 });
 
 // Event Listeners
@@ -46,6 +52,7 @@ function initEventListeners() {
     // Modals
     document.getElementById('btnAddEvent').addEventListener('click', openAddEventModal);
     document.getElementById('btnSettings').addEventListener('click', openSettingsModal);
+    document.getElementById('btnGoogleSync').addEventListener('click', syncGoogleData);
     document.getElementById('btnCloseModal').addEventListener('click', closeEventModal);
     document.getElementById('btnCancelModal').addEventListener('click', closeEventModal);
     document.getElementById('btnCloseSettings').addEventListener('click', closeSettingsModal);
@@ -56,6 +63,12 @@ function initEventListeners() {
     document.getElementById('settingStartHour').addEventListener('change', updateSettings);
     document.getElementById('settingEndHour').addEventListener('change', updateSettings);
     document.getElementById('settingEnableNotifications').addEventListener('change', updateSettings);
+    document.getElementById('settingSyncClassroom').addEventListener('change', updateSettings);
+    document.getElementById('settingSyncCalendar').addEventListener('change', updateSettings);
+    
+    // Google Integration
+    document.getElementById('btnConnectGoogle').addEventListener('click', connectGoogle);
+    document.getElementById('btnDisconnectGoogle').addEventListener('click', disconnectGoogle);
     
     // Data management
     document.getElementById('btnExportData').addEventListener('click', exportData);
@@ -642,3 +655,235 @@ document.addEventListener('click', (e) => {
         }
     }
 });
+
+// ===============================
+// GOOGLE INTEGRATION FUNCTIONS
+// ===============================
+
+// Connect to Google
+async function connectGoogle() {
+    const btn = document.getElementById('btnConnectGoogle');
+    btn.textContent = '🔄 Đang kết nối...';
+    btn.disabled = true;
+    
+    try {
+        const success = await googleIntegration.authenticate();
+        
+        if (success) {
+            settings.googleConnected = true;
+            saveSettings();
+            updateGoogleStatus();
+            showNotification('✅ Kết nối Google thành công!', 'success');
+            
+            // Auto sync if enabled
+            if (settings.syncClassroom || settings.syncCalendar) {
+                await syncGoogleData();
+            }
+        } else {
+            showNotification('❌ Không thể kết nối Google. Vui lòng thử lại.', 'error');
+        }
+    } catch (error) {
+        console.error('Error connecting to Google:', error);
+        showNotification('❌ Lỗi kết nối: ' + error.message, 'error');
+    } finally {
+        btn.textContent = '🔐 Kết nối Google';
+        btn.disabled = false;
+    }
+}
+
+// Disconnect from Google
+async function disconnectGoogle() {
+    if (!confirm('Bạn có chắc muốn ngắt kết nối với Google? Dữ liệu đã đồng bộ sẽ vẫn được giữ lại.')) {
+        return;
+    }
+    
+    try {
+        await googleIntegration.logout();
+        settings.googleConnected = false;
+        settings.syncClassroom = false;
+        settings.syncCalendar = false;
+        saveSettings();
+        updateGoogleStatus();
+        
+        // Update checkboxes
+        document.getElementById('settingSyncClassroom').checked = false;
+        document.getElementById('settingSyncCalendar').checked = false;
+        
+        showNotification('✅ Đã ngắt kết nối Google', 'success');
+    } catch (error) {
+        console.error('Error disconnecting:', error);
+        showNotification('❌ Lỗi ngắt kết nối: ' + error.message, 'error');
+    }
+}
+
+// Update Google connection status in UI
+function updateGoogleStatus() {
+    const statusEl = document.getElementById('googleStatus');
+    const connectBtn = document.getElementById('btnConnectGoogle');
+    const disconnectBtn = document.getElementById('btnDisconnectGoogle');
+    const syncClassroomCb = document.getElementById('settingSyncClassroom');
+    const syncCalendarCb = document.getElementById('settingSyncCalendar');
+    
+    if (settings.googleConnected) {
+        statusEl.textContent = '✅ Đã kết nối';
+        statusEl.style.color = '#10b981';
+        connectBtn.style.display = 'none';
+        disconnectBtn.style.display = 'inline-block';
+        syncClassroomCb.disabled = false;
+        syncCalendarCb.disabled = false;
+    } else {
+        statusEl.textContent = '❌ Chưa kết nối';
+        statusEl.style.color = '#6b7280';
+        connectBtn.style.display = 'inline-block';
+        disconnectBtn.style.display = 'none';
+        syncClassroomCb.disabled = true;
+        syncCalendarCb.disabled = true;
+    }
+    
+    // Update checkbox states
+    syncClassroomCb.checked = settings.syncClassroom;
+    syncCalendarCb.checked = settings.syncCalendar;
+}
+
+// Sync Google data
+async function syncGoogleData() {
+    if (!settings.googleConnected) {
+        if (confirm('Chưa kết nối với Google. Bạn có muốn kết nối ngay không?')) {
+            await connectGoogle();
+            if (!settings.googleConnected) return;
+        } else {
+            return;
+        }
+    }
+    
+    const syncBtn = document.getElementById('btnGoogleSync');
+    syncBtn.textContent = '⏳';
+    syncBtn.disabled = true;
+    
+    try {
+        // Get date range for current week
+        const weekStart = new Date(currentWeekStart);
+        weekStart.setHours(0, 0, 0, 0);
+        
+        const weekEnd = new Date(currentWeekStart);
+        weekEnd.setDate(weekEnd.getDate() + 6);
+        weekEnd.setHours(23, 59, 59, 999);
+        
+        // Expand range to include upcoming assignments (next 30 days)
+        const futureEnd = new Date(weekStart);
+        futureEnd.setDate(futureEnd.getDate() + 30);
+        
+        let syncedCount = 0;
+        let newEvents = [];
+        
+        // Sync Google Classroom if enabled
+        if (settings.syncClassroom) {
+            const assignments = await googleIntegration.fetchAllAssignments();
+            
+            // Filter assignments within our date range and not already synced
+            const existingClassroomIds = events
+                .filter(e => e.source === 'classroom')
+                .map(e => e.id);
+            
+            const newAssignments = assignments.filter(a => {
+                const assignmentDate = new Date(a.date);
+                return assignmentDate >= weekStart && 
+                       assignmentDate <= futureEnd &&
+                       !existingClassroomIds.includes(a.id);
+            });
+            
+            newEvents = newEvents.concat(newAssignments);
+            syncedCount += newAssignments.length;
+        }
+        
+        // Sync Google Calendar if enabled
+        if (settings.syncCalendar) {
+            const calendarEvents = await googleIntegration.fetchCalendarEvents(weekStart, futureEnd);
+            
+            // Filter events not already synced
+            const existingCalendarIds = events
+                .filter(e => e.source === 'gcalendar')
+                .map(e => e.id);
+            
+            const newCalendarEvents = calendarEvents.filter(e => 
+                !existingCalendarIds.includes(e.id)
+            );
+            
+            newEvents = newEvents.concat(newCalendarEvents);
+            syncedCount += newCalendarEvents.length;
+        }
+        
+        // Add new events to our calendar
+        if (newEvents.length > 0) {
+            events = [...events, ...newEvents];
+            saveEvents();
+            renderCalendar();
+            
+            showNotification(`✅ Đã đồng bộ ${syncedCount} sự kiện mới!`, 'success');
+        } else {
+            showNotification('✓ Không có sự kiện mới cần đồng bộ', 'info');
+        }
+        
+    } catch (error) {
+        console.error('Error syncing Google data:', error);
+        showNotification('❌ Lỗi đồng bộ: ' + error.message, 'error');
+    } finally {
+        syncBtn.textContent = '🔄';
+        syncBtn.disabled = false;
+    }
+}
+
+// Show notification (simple toast)
+function showNotification(message, type = 'info') {
+    // Create toast element
+    const toast = document.createElement('div');
+    toast.style.cssText = `
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        padding: 12px 20px;
+        background: ${type === 'success' ? '#10b981' : type === 'error' ? '#ef4444' : '#3b82f6'};
+        color: white;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 500;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        z-index: 10000;
+        animation: slideIn 0.3s ease;
+    `;
+    toast.textContent = message;
+    
+    document.body.appendChild(toast);
+    
+    // Remove after 3 seconds
+    setTimeout(() => {
+        toast.style.animation = 'slideOut 0.3s ease';
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
+}
+
+// Add CSS for toast animations
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes slideIn {
+        from {
+            transform: translateX(400px);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+    @keyframes slideOut {
+        from {
+            transform: translateX(0);
+            opacity: 1;
+        }
+        to {
+            transform: translateX(400px);
+            opacity: 0;
+        }
+    }
+`;
+document.head.appendChild(style);

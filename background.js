@@ -4,19 +4,19 @@
 chrome.alarms.onAlarm.addListener((alarm) => {
     if (alarm.name.startsWith('reminder-')) {
         const eventId = alarm.name.replace('reminder-', '');
-        
+
         // Get event details from storage
         chrome.storage.local.get(['events'], (result) => {
             const events = result.events || [];
             const event = events.find(e => e.id === eventId);
-            
+
             if (event) {
                 // Determine reminder text
                 const reminderMinutes = event.reminder || 15;
-                const reminderText = reminderMinutes >= 1440 ? `${reminderMinutes/1440} ngày` : 
-                                    reminderMinutes >= 60 ? `${reminderMinutes/60} giờ` : 
-                                    `${reminderMinutes} phút`;
-                
+                const reminderText = reminderMinutes >= 1440 ? `${reminderMinutes / 1440} ngày` :
+                    reminderMinutes >= 60 ? `${reminderMinutes / 60} giờ` :
+                        `${reminderMinutes} phút`;
+
                 // Show notification
                 chrome.notifications.create({
                     type: 'basic',
@@ -39,7 +39,7 @@ chrome.notifications.onClicked.addListener((notificationId) => {
 // Initialize extension
 chrome.runtime.onInstalled.addListener(() => {
     console.log('Schedule Manager Extension installed!');
-    
+
     // Set default storage if first install
     chrome.storage.local.get(['events'], (result) => {
         if (!result.events) {
@@ -58,14 +58,14 @@ chrome.alarms.onAlarm.addListener((alarm) => {
         chrome.storage.local.get(['events'], (result) => {
             const events = result.events || [];
             const now = new Date();
-            
+
             // Remove past events older than 7 days
             const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
             const activeEvents = events.filter(event => {
                 const eventDate = new Date(event.date);
                 return eventDate >= weekAgo;
             });
-            
+
             if (activeEvents.length !== events.length) {
                 chrome.storage.local.set({ events: activeEvents });
                 console.log(`Cleaned up ${events.length - activeEvents.length} old events`);
@@ -80,18 +80,18 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         const { event } = request;
         const eventDateTime = new Date(`${event.date}T${event.startTime}`);
         const reminderTime = new Date(eventDateTime.getTime() - 15 * 60000);
-        
+
         chrome.alarms.create(`reminder-${event.id}`, {
             when: reminderTime.getTime()
         });
-        
+
         sendResponse({ success: true });
     }
-    
+
     if (request.action === 'cancelReminder') {
         chrome.alarms.clear(`reminder-${request.eventId}`);
         sendResponse({ success: true });
     }
-    
+
     return true;
 });
