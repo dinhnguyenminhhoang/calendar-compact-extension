@@ -1,192 +1,266 @@
+// google_integration.js
+// Google API Integration Module (MV3-safe)
+
 class GoogleIntegration {
     constructor() {
         this.accessToken = null;
         this.isAuthenticated = false;
     }
 
+    // ---------- Core helpers ----------
+    async getToken(forceRefresh = false) {
+        const get = () =>
+            new Promise((resolve) =>
+                chrome.identity.getAuthToken({ interactive: true }, (t) => resolve(t || null))
+            );
+
+        let token = await get();
+        if (!token) return null;
+
+        if (forceRefresh) {
+            await new Promise((r) => chrome.identity.removeCachedAuthToken({ token }, r));
+            token = await get();
+        }
+        return token;
+    }
+
+    async fetchJson(url, token) {
+        const res = await fetch(url, {
+            headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        });
+
+        if (res.status === 401) {
+            const fresh = await this.getToken(true);
+            if (!fresh) return { error: "no_token" };
+            const res2 = await fetch(url, {
+                headers: { Authorization: `Bearer ${fresh}`, "Content-Type": "application/json" },
+            });
+            return res2.json();
+        }
+
+        return res.json();
+    }
+
+    // ---------- Auth ----------
     async authenticate() {
         try {
-            const token = await chrome.identity.getAuthToken({ interactive: true });
+            const token = await this.getToken();
+            this.isAuthenticated = !!token;
             this.accessToken = token;
-            this.isAuthenticated = true;
-            console.log('✅ Google authentication successful');
-            return true;
+            if (!this.isAuthenticated) console.error("No token received from chrome.identity");
+            else console.log("✅ Google authentication successful");
+            return this.isAuthenticated;
         } catch (error) {
-            console.error('❌ Google authentication failed:', error);
+            console.error("❌ Google authentication failed:", error);
             return false;
         }
     }
 
-    // Fetch Google Classroom courses
+    // ---------- Classroom ----------
     async fetchClassroomCourses() {
-        if (!this.isAuthenticated) {
-            await this.authenticate();
-        }
+        if (!this.isAuthenticated) await this.authenticate();
+        if (!this.accessToken) return [];
 
-        try {
-            const response = await fetch(
-                'https://classroom.googleapis.com/v1/courses?courseStates=ACTIVE',
-                {
-                    headers: {
-                        'Authorization': `Bearer ${this.accessToken}`,
-                        'Content-Type': 'application/json'
-                    }
-                }
-            );
+        const courses = [];
+        let pageToken = "";
+        do {
+            const url = new URL("https://classroom.googleapis.com/v1/courses");
+            url.searchParams.set("courseStates", "ACTIVE");
+            if (pageToken) url.searchParams.set("pageToken", pageToken);
 
-            const data = await response.json();
-            return data.courses || [];
-        } catch (error) {
-            console.error('Error fetching courses:', error);
-            return [];
-        }
+            const data = await this.fetchJson(url.toString(), this.accessToken);
+            courses.push(...(data.courses || []));
+            pageToken = data.nextPageToken || "";
+        } while (pageToken);
+
+        console.log("📚 Courses:", courses.length);
+        return courses;
     }
 
-    // Fetch coursework (assignments) from Google Classroom
     async fetchCoursework(courseId) {
-        if (!this.isAuthenticated) {
-            await this.authenticate();
-        }
+        if (!this.isAuthenticated) await this.authenticate();
+        if (!this.accessToken) return [];
 
-        try {
-            const response = await fetch(
-                `https://classroom.googleapis.com/v1/courses/${courseId}/courseWork`,
-                {
-                    headers: {
-                        'Authorization': `Bearer ${this.accessToken}`,
-                        'Content-Type': 'application/json'
-                    }
-                }
+        const items = [];
+        let pageToken = "";
+        do {
+            const url = new URL(
+                `https://classroom.googleapis.com/v1/courses/${courseId}/courseWork`
             );
+            if (pageToken) url.searchParams.set("pageToken", pageToken);
 
-            const data = await response.json();
-            return data.courseWork || [];
-        } catch (error) {
-            console.error('Error fetching coursework:', error);
-            return [];
-        }
+            const data = await this.fetchJson(url.toString(), this.accessToken);
+            items.push(...(data.courseWork || []));
+            pageToken = data.nextPageToken || "";
+        } while (pageToken);
+
+        return items;
     }
 
-    // Fetch all assignments from all courses
+    toYmdHm(dueDate, dueTime) {
+        // dueDate: {year,month,day}, dueTime?: {hours,minutes}
+        const y = dueDate.year;
+        const m = String(dueDate.month).padStart(2, "0");
+        const d = String(dueDate.day).padStart(2, "0");
+        const hh = String(dueTime?.hours ?? 23).padStart(2, "0");
+        const mm = String(dueTime?.minutes ?? 59).padStart(2, "0");
+        return { date: `${y}-${m}-${d}`, time: `${hh}:${mm}` };
+    }
+
     async fetchAllAssignments() {
         const courses = await this.fetchClassroomCourses();
         const allAssignments = [];
 
         for (const course of courses) {
             const coursework = await this.fetchCoursework(course.id);
-
             for (const work of coursework) {
-                // Convert to our event format
-                const dueDate = work.dueDate;
-                const dueTime = work.dueTime || { hours: 23, minutes: 59 };
+                if (!work?.dueDate) continue;
+                const { date, time } = this.toYmdHm(work.dueDate, work.dueTime);
 
-                if (dueDate) {
-                    const dateStr = `${dueDate.year}-${String(dueDate.month).padStart(2, '0')}-${String(dueDate.day).padStart(2, '0')}`;
-                    const timeStr = `${String(dueTime.hours).padStart(2, '0')}:${String(dueTime.minutes).padStart(2, '0')}`;
-
-                    allAssignments.push({
-                        id: `classroom-${work.id}`,
-                        title: `📚 ${work.title}`,
-                        description: `${course.name}\n\n${work.description || 'Không có mô tả'}`,
-                        date: dateStr,
-                        startTime: timeStr,
-                        endTime: timeStr,
-                        color: '#8b5cf6',
-                        type: 'study',
-                        source: 'classroom',
-                        courseId: course.id,
-                        courseName: course.name,
-                        workId: work.id,
-                        link: work.alternateLink,
-                        reminder: 60 // 1 hour before
-                    });
-                }
+                allAssignments.push({
+                    id: `classroom-${work.id}`,
+                    title: `📚 ${work.title || "Bài tập"}`,
+                    description: `${course.name}\n\n${work.description || "Không có mô tả"}`,
+                    date,
+                    startTime: time,
+                    endTime: time,
+                    color: "#8b5cf6",
+                    type: "study",
+                    source: "classroom",
+                    courseId: course.id,
+                    courseName: course.name,
+                    workId: work.id,
+                    link: work.alternateLink,
+                    reminder: 60, // 1h trước hạn
+                });
             }
         }
 
+        console.log("📚 Total assignments:", allAssignments.length);
         return allAssignments;
     }
 
-    // Fetch Google Calendar events
-    async fetchCalendarEvents(startDate, endDate) {
-        if (!this.isAuthenticated) {
-            await this.authenticate();
-        }
-
-        try {
-            const timeMin = new Date(startDate).toISOString();
-            const timeMax = new Date(endDate).toISOString();
-
-            const response = await fetch(
-                `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${timeMin}&timeMax=${timeMax}&singleEvents=true&orderBy=startTime`,
-                {
-                    headers: {
-                        'Authorization': `Bearer ${this.accessToken}`,
-                        'Content-Type': 'application/json'
-                    }
-                }
-            );
-
-            const data = await response.json();
-            return this.convertCalendarEvents(data.items || []);
-        } catch (error) {
-            console.error('Error fetching calendar events:', error);
-            return [];
-        }
+    // ---------- Calendar ----------
+    localDateFromAllDay(ymd) {
+        // 'YYYY-MM-DD' -> Date local 00:00
+        const [y, m, d] = ymd.split("-").map(Number);
+        const dt = new Date();
+        dt.setFullYear(y, m - 1, d);
+        dt.setHours(0, 0, 0, 0);
+        return dt;
     }
 
-    // Convert Google Calendar events to our format
     convertCalendarEvents(events) {
-        return events.map(event => {
-            const start = event.start.dateTime || event.start.date;
-            const end = event.end.dateTime || event.end.date;
-
-            const startDate = new Date(start);
-            const endDate = new Date(end);
+        const pad = (n) => String(n).padStart(2, "0");
+        return events.map((ev) => {
+            const isAllDay = !!ev.start?.date;
+            const start = isAllDay
+                ? this.localDateFromAllDay(ev.start.date)
+                : new Date(ev.start?.dateTime || ev.start?.date || Date.now());
+            const end = ev.end?.date
+                ? this.localDateFromAllDay(ev.end.date)
+                : new Date(ev.end?.dateTime || ev.start?.dateTime || start);
 
             return {
-                id: `gcal-${event.id}`,
-                title: `📅 ${event.summary || 'Không có tiêu đề'}`,
-                description: event.description || '',
-                date: startDate.toISOString().split('T')[0],
-                startTime: startDate.toTimeString().slice(0, 5),
-                endTime: endDate.toTimeString().slice(0, 5),
-                color: '#06b6d4',
-                type: 'work',
-                source: 'gcalendar',
-                link: event.htmlLink,
-                location: event.location || '',
-                reminder: 15
+                id: `gcal-${ev.id}`,
+                title: `📅 ${ev.summary || "Không có tiêu đề"}`,
+                description: ev.description || "",
+                date: `${start.getFullYear()}-${pad(start.getMonth() + 1)}-${pad(start.getDate())}`,
+                startTime: isAllDay ? "00:00" : `${pad(start.getHours())}:${pad(start.getMinutes())}`,
+                endTime: isAllDay ? "23:59" : `${pad(end.getHours())}:${pad(end.getMinutes())}`,
+                color: "#06b6d4",
+                type: "work",
+                source: "gcalendar",
+                link: ev.htmlLink,
+                location: ev.location || "",
+                reminder: 15,
             };
         });
     }
 
-    // Sync all data from Google services
-    async syncAll(startDate, endDate) {
-        const assignments = await this.fetchAllAssignments();
-        const calendarEvents = await this.fetchCalendarEvents(startDate, endDate);
+    async listAllCalendars() {
+        if (!this.isAuthenticated) await this.authenticate();
+        if (!this.accessToken) return [];
 
-        return {
-            assignments,
-            calendarEvents,
-            total: assignments.length + calendarEvents.length
-        };
+        const calendars = [];
+        let pageToken = "";
+        do {
+            const url = new URL("https://www.googleapis.com/calendar/v3/users/me/calendarList");
+            url.searchParams.set("maxResults", "250");
+            if (pageToken) url.searchParams.set("pageToken", pageToken);
+
+            const data = await this.fetchJson(url.toString(), this.accessToken);
+            calendars.push(...(data.items || []));
+            pageToken = data.nextPageToken || "";
+        } while (pageToken);
+
+        return calendars;
     }
 
-    // Logout
+    async fetchCalendarEvents(startDate, endDate) {
+        if (!this.isAuthenticated) await this.authenticate();
+        if (!this.accessToken) return [];
+
+        const timeMin = new Date(startDate).toISOString();
+        const timeMax = new Date(endDate).toISOString();
+
+        const calendars = await this.listAllCalendars();
+        console.log("📅 Calendars:", calendars.length, calendars.map((c) => c.summary));
+
+        let allEvents = [];
+        for (const cal of calendars) {
+            let pageToken = "";
+            do {
+                const u = new URL(
+                    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(cal.id)}/events`
+                );
+                u.searchParams.set("timeMin", timeMin);
+                u.searchParams.set("timeMax", timeMax);
+                u.searchParams.set("singleEvents", "true");
+                u.searchParams.set("orderBy", "startTime");
+                u.searchParams.set("maxResults", "2500");
+                if (pageToken) u.searchParams.set("pageToken", pageToken);
+
+                const data = await this.fetchJson(u.toString(), this.accessToken);
+                const items = Array.isArray(data.items) ? data.items : [];
+                allEvents.push(...items);
+                pageToken = data.nextPageToken || "";
+            } while (pageToken);
+        }
+
+        console.log("📅 Total GCal events (raw):", allEvents.length);
+        return this.convertCalendarEvents(allEvents);
+    }
+
+    // ---------- Sync ----------
+    async syncAll(startDate, endDate) {
+        if (!this.isAuthenticated) await this.authenticate();
+        const [assignments, calendarEvents] = await Promise.all([
+            this.fetchAllAssignments(),
+            this.fetchCalendarEvents(startDate, endDate),
+        ]);
+
+        const total = assignments.length + calendarEvents.length;
+        console.log("✅ Sync done. totals:", { assignments: assignments.length, calendarEvents: calendarEvents.length, total });
+        return { assignments, calendarEvents, total };
+    }
+
+    // ---------- Logout ----------
     async logout() {
         try {
             if (this.accessToken) {
-                await chrome.identity.removeCachedAuthToken({ token: this.accessToken });
+                await new Promise((r) =>
+                    chrome.identity.removeCachedAuthToken({ token: this.accessToken }, r)
+                );
             }
             this.accessToken = null;
             this.isAuthenticated = false;
-            console.log('✅ Logged out successfully');
+            console.log("✅ Logged out successfully");
         } catch (error) {
-            console.error('Error logging out:', error);
+            console.error("Error logging out:", error);
         }
     }
 }
 
-// Export for use in other files
+// Export for popup/pages
 window.GoogleIntegration = GoogleIntegration;

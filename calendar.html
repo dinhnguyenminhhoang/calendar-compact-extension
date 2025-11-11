@@ -13,8 +13,9 @@
       <button class="btn-today" id="btnToday">Hôm nay</button>
       <button class="btn-nav" id="btnNextWeek">▶</button>
       <div class="week-range" id="weekRange"></div>
+      <button class="btn-icon" id="btnReload" title="Tải lại">⟳</button>
       <button class="btn-icon" id="btnGoogleSync" title="Đồng bộ Google">
-        🔄
+        🔗
       </button>
       <button class="btn-icon" id="btnAddEvent" title="Thêm sự kiện">➕</button>
       <button class="btn-icon" id="btnSettings" title="Cài đặt">⚙️</button>
@@ -67,6 +68,76 @@
               placeholder="Mô tả chi tiết..."
               rows="3"
             ></textarea>
+          </div>
+
+          <div class="form-group">
+            <label
+              style="
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+              "
+            >
+              <span>🔗 Links</span>
+              <button
+                type="button"
+                class="btn-add-link"
+                id="btnAddLink"
+                style="
+                  padding: 4px 12px;
+                  font-size: 12px;
+                  background: #667eea;
+                  color: white;
+                  border: none;
+                  border-radius: 4px;
+                  cursor: pointer;
+                "
+              >
+                ➕ Thêm link
+              </button>
+            </label>
+            <div
+              id="linksContainer"
+              style="display: flex; flex-direction: column; gap: 8px"
+            >
+              <div
+                class="link-input-group"
+                style="display: flex; gap: 8px; align-items: center"
+              >
+                <input
+                  type="url"
+                  class="event-link"
+                  placeholder="https://meet.google.com/..."
+                  style="flex: 1"
+                />
+                <button
+                  type="button"
+                  class="btn-remove-link"
+                  style="
+                    display: none;
+                    width: 32px;
+                    height: 32px;
+                    background: #ef4444;
+                    color: white;
+                    border: none;
+                    border-radius: 4px;
+                    cursor: pointer;
+                    font-size: 16px;
+                  "
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+            <small
+              style="
+                color: #6b7280;
+                font-size: 11px;
+                margin-top: 4px;
+                display: block;
+              "
+              >Thêm link Zoom, Meet, tài liệu, hoặc website liên quan</small
+            >
           </div>
 
           <div class="form-row">
@@ -231,32 +302,68 @@
           <div class="settings-section">
             <h3>🔗 Tích hợp Google</h3>
             <div class="setting-item">
-              <label class="checkbox-label">
-                <input type="checkbox" id="settingSyncClassroom" />
-                <span>Đồng bộ Google Classroom</span>
-              </label>
-            </div>
-            <div class="setting-item">
-              <label class="checkbox-label">
-                <input type="checkbox" id="settingSyncCalendar" />
-                <span>Đồng bộ Google Calendar</span>
-              </label>
-            </div>
-            <div class="setting-item">
-              <button class="btn btn-primary" id="btnConnectGoogle">
-                🔐 Kết nối Google
+              <div
+                class="google-status-box"
+                style="
+                  padding: 12px;
+                  background: #f3f4f6;
+                  border-radius: 8px;
+                  margin-bottom: 12px;
+                "
+              >
+                <small
+                  id="googleStatus"
+                  style="color: #6b7280; font-weight: 500"
+                  >❌ Chưa kết nối</small
+                >
+              </div>
+              <button
+                class="btn btn-primary"
+                id="btnConnectGoogle"
+                style="margin-bottom: 8px"
+              >
+                🔐 Kết nối với Google
               </button>
               <button
                 class="btn btn-secondary"
                 id="btnDisconnectGoogle"
-                style="display: none"
+                style="display: none; margin-bottom: 12px"
               >
                 🔓 Ngắt kết nối
               </button>
+              <small style="color: #6b7280; display: block; margin-bottom: 16px"
+                >Kết nối để tự động tải bài tập từ Classroom và sự kiện từ
+                Calendar</small
+              >
             </div>
             <div class="setting-item">
-              <small id="googleStatus" style="color: #6b7280"
-                >Chưa kết nối</small
+              <label class="checkbox-label" style="opacity: 0.5">
+                <input type="checkbox" id="settingSyncClassroom" disabled />
+                <span>📚 Tự động tải bài tập từ Google Classroom</span>
+              </label>
+              <small
+                style="
+                  color: #6b7280;
+                  display: block;
+                  margin-left: 26px;
+                  margin-top: 4px;
+                "
+                >Tải deadline và thông tin bài tập tự động</small
+              >
+            </div>
+            <div class="setting-item">
+              <label class="checkbox-label" style="opacity: 0.5">
+                <input type="checkbox" id="settingSyncCalendar" disabled />
+                <span>📅 Tự động tải sự kiện từ Google Calendar</span>
+              </label>
+              <small
+                style="
+                  color: #6b7280;
+                  display: block;
+                  margin-left: 26px;
+                  margin-top: 4px;
+                "
+                >Đồng bộ lịch hẹn và cuộc họp</small
               >
             </div>
           </div>
@@ -276,6 +383,14 @@
                 accept=".json"
                 style="display: none"
               />
+            </div>
+            <div class="setting-item">
+              <button class="btn btn-secondary" id="btnClearGoogleCache">
+                🔄 Xóa cache Google và sync lại
+              </button>
+              <small style="color: #6b7280; display: block; margin-top: 4px"
+                >Xóa tất cả events từ Google và tải lại từ đầu</small
+              >
             </div>
             <div class="setting-item">
               <button class="btn btn-danger" id="btnClearData">

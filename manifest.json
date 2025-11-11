@@ -34,6 +34,7 @@
     "service_worker": "background.js"
   },
   "host_permissions": [
-    "https://www.googleapis.com/*"
+    "https://www.googleapis.com/*",
+    "https://classroom.googleapis.com/*"
   ]
 }

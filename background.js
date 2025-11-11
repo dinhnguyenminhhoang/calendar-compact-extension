@@ -1,97 +1,115 @@
 // Background service worker for handling notifications and alarms
 
-// Listen for alarm triggers
+// ---- Helpers
+const MINUTE = 60 * 1000;
+const DAY = 24 * 60 * MINUTE;
+
+function fmtReminderText(minutes) {
+    if (minutes >= 1440) return `${minutes / 1440} ngày`;
+    if (minutes >= 60) return `${minutes / 60} giờ`;
+    return `${minutes} phút`;
+}
+
+function toLocalDateTime(dateStr, timeStr) {
+    // dateStr: 'YYYY-MM-DD', timeStr: 'HH:mm'
+    // Tạo Date theo local time để alarm chạy đúng múi giờ máy
+    const [y, m, d] = dateStr.split('-').map(Number);
+    const [hh, mm] = timeStr.split(':').map(Number);
+    const dt = new Date();
+    dt.setFullYear(y, m - 1, d);
+    dt.setHours(hh, mm, 0, 0);
+    return dt;
+}
+
+// ---- One alarm handler for all
 chrome.alarms.onAlarm.addListener((alarm) => {
     if (alarm.name.startsWith('reminder-')) {
-        const eventId = alarm.name.replace('reminder-', '');
+        const eventId = alarm.name.slice('reminder-'.length);
 
-        // Get event details from storage
         chrome.storage.local.get(['events'], (result) => {
             const events = result.events || [];
-            const event = events.find(e => e.id === eventId);
+            const ev = events.find(e => e.id === eventId);
+            if (!ev) return;
 
-            if (event) {
-                // Determine reminder text
-                const reminderMinutes = event.reminder || 15;
-                const reminderText = reminderMinutes >= 1440 ? `${reminderMinutes / 1440} ngày` :
-                    reminderMinutes >= 60 ? `${reminderMinutes / 60} giờ` :
-                        `${reminderMinutes} phút`;
+            const reminderMinutes = Number(ev.reminder ?? 15);
+            const message =
+                `${ev.title}\n\n` +
+                `📅 ${ev.date}\n` +
+                `⏰ ${ev.startTime} - ${ev.endTime}\n` +
+                `🔔 Sự kiện sẽ bắt đầu sau ${fmtReminderText(reminderMinutes)}!`;
 
-                // Show notification
-                chrome.notifications.create({
-                    type: 'basic',
-                    iconUrl: 'icons/icon128.png',
-                    title: '⏰ Nhắc nhở sự kiện',
-                    message: `${event.title}\n\n📅 ${event.date}\n⏰ ${event.startTime} - ${event.endTime}\n🔔 Sự kiện sẽ bắt đầu sau ${reminderText}!`,
-                    priority: 2
-                });
-            }
+            chrome.notifications.create({
+                type: 'basic',
+                iconUrl: 'icons/icon128.png',
+                title: '⏰ Nhắc nhở sự kiện',
+                message,
+                priority: 2
+            });
         });
     }
-});
 
-// Listen for notification clicks
-chrome.notifications.onClicked.addListener((notificationId) => {
-    // Open the extension popup when notification is clicked
-    chrome.action.openPopup();
-});
-
-// Initialize extension
-chrome.runtime.onInstalled.addListener(() => {
-    console.log('Schedule Manager Extension installed!');
-
-    // Set default storage if first install
-    chrome.storage.local.get(['events'], (result) => {
-        if (!result.events) {
-            chrome.storage.local.set({ events: [] });
-        }
-    });
-});
-
-// Clean up old alarms periodically
-chrome.alarms.create('cleanup', {
-    periodInMinutes: 60 // Run every hour
-});
-
-chrome.alarms.onAlarm.addListener((alarm) => {
     if (alarm.name === 'cleanup') {
         chrome.storage.local.get(['events'], (result) => {
             const events = result.events || [];
-            const now = new Date();
+            const now = Date.now();
+            const weekAgo = now - 7 * DAY;
 
-            // Remove past events older than 7 days
-            const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-            const activeEvents = events.filter(event => {
-                const eventDate = new Date(event.date);
-                return eventDate >= weekAgo;
+            const filtered = events.filter(ev => {
+                const endDt = toLocalDateTime(ev.date, ev.endTime || ev.startTime || '00:00').getTime();
+                return endDt >= weekAgo;
             });
 
-            if (activeEvents.length !== events.length) {
-                chrome.storage.local.set({ events: activeEvents });
-                console.log(`Cleaned up ${events.length - activeEvents.length} old events`);
+            if (filtered.length !== events.length) {
+                chrome.storage.local.set({ events: filtered });
+                console.log(`Cleaned up ${events.length - filtered.length} old events`);
             }
         });
     }
 });
 
-// Handle messages from popup
+// ---- Notification click → mở UI chắc ăn
+chrome.notifications.onClicked.addListener(() => {
+    chrome.tabs.create({ url: chrome.runtime.getURL('calendar.html') });
+});
+
+// ---- First install
+chrome.runtime.onInstalled.addListener(() => {
+    console.log('Schedule Manager Extension installed!');
+    chrome.storage.local.get(['events'], (res) => {
+        if (!Array.isArray(res.events)) chrome.storage.local.set({ events: [] });
+    });
+    // tạo alarm dọn rác định kỳ
+    chrome.alarms.create('cleanup', { periodInMinutes: 60 });
+});
+
+// ---- Messages from popup
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'scheduleReminder') {
         const { event } = request;
-        const eventDateTime = new Date(`${event.date}T${event.startTime}`);
-        const reminderTime = new Date(eventDateTime.getTime() - 15 * 60000);
+        // event: { id, title, date:'YYYY-MM-DD', startTime:'HH:mm', endTime:'HH:mm', reminder?: minutes }
 
-        chrome.alarms.create(`reminder-${event.id}`, {
-            when: reminderTime.getTime()
-        });
+        const eventStart = toLocalDateTime(event.date, event.startTime);
+        const minutes = Number(event.reminder ?? 15);
+        const remindAt = new Date(eventStart.getTime() - minutes * MINUTE);
 
+        const now = Date.now();
+        if (remindAt.getTime() <= now) {
+            console.warn('Reminder time is in the past, skip:', event.id);
+            sendResponse({ success: false, reason: 'past' });
+            return true;
+        }
+
+        chrome.alarms.create(`reminder-${event.id}`, { when: remindAt.getTime() });
         sendResponse({ success: true });
+        return true;
     }
 
     if (request.action === 'cancelReminder') {
-        chrome.alarms.clear(`reminder-${request.eventId}`);
-        sendResponse({ success: true });
+        chrome.alarms.clear(`reminder-${request.eventId}`, (cleared) => {
+            sendResponse({ success: cleared });
+        });
+        return true;
     }
 
-    return true;
+    return false;
 });

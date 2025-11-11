@@ -7,7 +7,8 @@
 body {
   font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
   width: 800px;
-  height: 550px;
+  min-height: 550px;
+  max-height: 100vh;
   overflow: hidden;
   background: #ffffff;
   color: #1f2937;
@@ -122,8 +123,17 @@ body {
   display: flex;
   flex: 1;
   overflow: hidden;
+  position: relative;
 }
-
+.current-time-guide {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-top: 2px dashed #12c54e; /* màu khác thanh đỏ */
+  z-index: 998;
+  pointer-events: none;
+  opacity: 0.9;
+}
 .day-column {
   flex: 1;
   min-width: 95px;
@@ -182,6 +192,11 @@ body {
   cursor: pointer;
 }
 
+.hour-slot.drop-target {
+  background: #e0e7ff;
+  border: 2px dashed #667eea;
+}
+
 /* Events */
 .calendar-event {
   position: absolute;
@@ -193,15 +208,26 @@ body {
   font-weight: 500;
   color: white;
   overflow: hidden;
-  cursor: pointer;
+  cursor: move;
   transition: all 0.2s;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  user-select: none;
 }
 
 .calendar-event:hover {
   transform: translateY(-1px);
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
   z-index: 100;
+}
+
+.calendar-event.dragging {
+  opacity: 0.5;
+  cursor: grabbing;
+  z-index: 1000;
+}
+
+.calendar-event.drag-over {
+  border: 2px dashed #667eea;
 }
 
 .event-title {
@@ -306,6 +332,7 @@ body {
 .form-group input[type="text"],
 .form-group input[type="date"],
 .form-group input[type="time"],
+.form-group input[type="url"],
 .form-group select,
 .form-group textarea {
   width: 100%;
@@ -323,6 +350,50 @@ body {
   outline: none;
   border-color: #667eea;
   box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.link-input-group {
+  animation: slideInLink 0.2s ease;
+}
+
+@keyframes slideInLink {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.event-link {
+  flex: 1;
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+  font-family: inherit;
+  transition: all 0.2s;
+}
+
+.event-link:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.btn-remove-link {
+  transition: all 0.2s;
+}
+
+.btn-remove-link:hover {
+  background: #dc2626;
+  transform: scale(1.05);
+}
+
+.btn-add-link:hover {
+  background: #5568d3;
 }
 
 .form-group textarea {
@@ -637,7 +708,7 @@ body {
   right: 0;
   height: 2px;
   background: #ef4444;
-  z-index: 100;
+  z-index: 999;
   pointer-events: none;
   box-shadow: 0 0 6px rgba(239, 68, 68, 0.5);
 }
