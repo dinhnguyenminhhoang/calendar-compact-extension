@@ -1,13 +1,9 @@
-// google_integration.js
-// Google API Integration Module (MV3-safe)
-
 class GoogleIntegration {
     constructor() {
         this.accessToken = null;
         this.isAuthenticated = false;
     }
 
-    // ---------- Core helpers ----------
     async getToken(forceRefresh = false) {
         const get = () =>
             new Promise((resolve) =>
@@ -41,14 +37,16 @@ class GoogleIntegration {
         return res.json();
     }
 
-    // ---------- Auth ----------
     async authenticate() {
         try {
             const token = await this.getToken();
             this.isAuthenticated = !!token;
             this.accessToken = token;
-            if (!this.isAuthenticated) console.error("No token received from chrome.identity");
-            else console.log("✅ Google authentication successful");
+            if (!this.isAuthenticated) {
+                console.error("No token received from chrome.identity");
+            } else {
+                console.log("✅ Google authentication successful");
+            }
             return this.isAuthenticated;
         } catch (error) {
             console.error("❌ Google authentication failed:", error);
@@ -56,7 +54,7 @@ class GoogleIntegration {
         }
     }
 
-    // ---------- Classroom ----------
+
     async fetchClassroomCourses() {
         if (!this.isAuthenticated) await this.authenticate();
         if (!this.accessToken) return [];
@@ -98,7 +96,6 @@ class GoogleIntegration {
     }
 
     toYmdHm(dueDate, dueTime) {
-        // dueDate: {year,month,day}, dueTime?: {hours,minutes}
         const y = dueDate.year;
         const m = String(dueDate.month).padStart(2, "0");
         const d = String(dueDate.day).padStart(2, "0");
@@ -106,7 +103,6 @@ class GoogleIntegration {
         const mm = String(dueTime?.minutes ?? 59).padStart(2, "0");
         return { date: `${y}-${m}-${d}`, time: `${hh}:${mm}` };
     }
-
     async fetchAllAssignments() {
         const courses = await this.fetchClassroomCourses();
         const allAssignments = [];
@@ -115,24 +111,61 @@ class GoogleIntegration {
             const coursework = await this.fetchCoursework(course.id);
             for (const work of coursework) {
                 if (!work?.dueDate) continue;
-                const { date, time } = this.toYmdHm(work.dueDate, work.dueTime);
+                const state = await this.fetchSubmissionState(course.id, work.id);
+                const { date: dueDate, time: dueTime } = this.toYmdHm(
+                    work.dueDate,
+                    work.dueTime
+                );
 
-                allAssignments.push({
-                    id: `classroom-${work.id}`,
-                    title: `📚 ${work.title || "Bài tập"}`,
-                    description: `${course.name}\n\n${work.description || "Không có mô tả"}`,
-                    date,
-                    startTime: time,
-                    endTime: time,
+                const created = work.creationTime
+                    ? new Date(work.creationTime)
+                    : new Date();
+
+                const startY = created.getFullYear();
+                const startM = String(created.getMonth() + 1).padStart(2, "0");
+                const startD = String(created.getDate()).padStart(2, "0");
+                const startH = String(created.getHours()).padStart(2, "0");
+                const startMin = String(created.getMinutes()).padStart(2, "0");
+
+                const startDate = `${startY}-${startM}-${startD}`;
+                const startTime = `${startH}:${startMin}`;
+
+                const baseEvent = {
+                    title: `${work.title || "Bài tập"}`,
+                    description: `${course.name}\n\n${work.description || "Không có mô tả"
+                        } `,
+
                     color: "#8b5cf6",
                     type: "study",
                     source: "classroom",
+
                     courseId: course.id,
                     courseName: course.name,
                     workId: work.id,
                     link: work.alternateLink,
-                    reminder: 60, // 1h trước hạn
+                    reminder: 60
+                };
+
+                allAssignments.push({
+                    id: `classroom - ${work.id} `,
+                    ...baseEvent,
+                    date: startDate,
+                    startTime,
+                    endTime: dueTime,
+                    endDate: dueDate
                 });
+
+                if (dueDate !== startDate) {
+                    allAssignments.push({
+                        id: `classroom - ${work.id} -due`,
+                        ...baseEvent,
+                        title: `${(getSubmissionPrefix(state))}Hạn nộp: ${work.title || "Bài tập"}`,
+                        date: dueDate,
+                        startTime: "00:00",
+                        endTime: dueTime,
+                        endDate: dueDate
+                    });
+                }
             }
         }
 
@@ -140,112 +173,15 @@ class GoogleIntegration {
         return allAssignments;
     }
 
-    // ---------- Calendar ----------
-    localDateFromAllDay(ymd) {
-        // 'YYYY-MM-DD' -> Date local 00:00
-        const [y, m, d] = ymd.split("-").map(Number);
-        const dt = new Date();
-        dt.setFullYear(y, m - 1, d);
-        dt.setHours(0, 0, 0, 0);
-        return dt;
-    }
-
-    convertCalendarEvents(events) {
-        const pad = (n) => String(n).padStart(2, "0");
-        return events.map((ev) => {
-            const isAllDay = !!ev.start?.date;
-            const start = isAllDay
-                ? this.localDateFromAllDay(ev.start.date)
-                : new Date(ev.start?.dateTime || ev.start?.date || Date.now());
-            const end = ev.end?.date
-                ? this.localDateFromAllDay(ev.end.date)
-                : new Date(ev.end?.dateTime || ev.start?.dateTime || start);
-
-            return {
-                id: `gcal-${ev.id}`,
-                title: `📅 ${ev.summary || "Không có tiêu đề"}`,
-                description: ev.description || "",
-                date: `${start.getFullYear()}-${pad(start.getMonth() + 1)}-${pad(start.getDate())}`,
-                startTime: isAllDay ? "00:00" : `${pad(start.getHours())}:${pad(start.getMinutes())}`,
-                endTime: isAllDay ? "23:59" : `${pad(end.getHours())}:${pad(end.getMinutes())}`,
-                color: "#06b6d4",
-                type: "work",
-                source: "gcalendar",
-                link: ev.htmlLink,
-                location: ev.location || "",
-                reminder: 15,
-            };
-        });
-    }
-
-    async listAllCalendars() {
-        if (!this.isAuthenticated) await this.authenticate();
-        if (!this.accessToken) return [];
-
-        const calendars = [];
-        let pageToken = "";
-        do {
-            const url = new URL("https://www.googleapis.com/calendar/v3/users/me/calendarList");
-            url.searchParams.set("maxResults", "250");
-            if (pageToken) url.searchParams.set("pageToken", pageToken);
-
-            const data = await this.fetchJson(url.toString(), this.accessToken);
-            calendars.push(...(data.items || []));
-            pageToken = data.nextPageToken || "";
-        } while (pageToken);
-
-        return calendars;
-    }
-
-    async fetchCalendarEvents(startDate, endDate) {
-        if (!this.isAuthenticated) await this.authenticate();
-        if (!this.accessToken) return [];
-
-        const timeMin = new Date(startDate).toISOString();
-        const timeMax = new Date(endDate).toISOString();
-
-        const calendars = await this.listAllCalendars();
-        console.log("📅 Calendars:", calendars.length, calendars.map((c) => c.summary));
-
-        let allEvents = [];
-        for (const cal of calendars) {
-            let pageToken = "";
-            do {
-                const u = new URL(
-                    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(cal.id)}/events`
-                );
-                u.searchParams.set("timeMin", timeMin);
-                u.searchParams.set("timeMax", timeMax);
-                u.searchParams.set("singleEvents", "true");
-                u.searchParams.set("orderBy", "startTime");
-                u.searchParams.set("maxResults", "2500");
-                if (pageToken) u.searchParams.set("pageToken", pageToken);
-
-                const data = await this.fetchJson(u.toString(), this.accessToken);
-                const items = Array.isArray(data.items) ? data.items : [];
-                allEvents.push(...items);
-                pageToken = data.nextPageToken || "";
-            } while (pageToken);
-        }
-
-        console.log("📅 Total GCal events (raw):", allEvents.length);
-        return this.convertCalendarEvents(allEvents);
-    }
-
-    // ---------- Sync ----------
     async syncAll(startDate, endDate) {
         if (!this.isAuthenticated) await this.authenticate();
-        const [assignments, calendarEvents] = await Promise.all([
-            this.fetchAllAssignments(),
-            this.fetchCalendarEvents(startDate, endDate),
-        ]);
+        const assignments = await this.fetchAllAssignments();
 
-        const total = assignments.length + calendarEvents.length;
-        console.log("✅ Sync done. totals:", { assignments: assignments.length, calendarEvents: calendarEvents.length, total });
-        return { assignments, calendarEvents, total };
+        const total = assignments.length;
+        console.log("✅ Sync done. totals:", { assignments: assignments.length, total });
+        return { assignments, total };
     }
 
-    // ---------- Logout ----------
     async logout() {
         try {
             if (this.accessToken) {
@@ -260,7 +196,36 @@ class GoogleIntegration {
             console.error("Error logging out:", error);
         }
     }
+    async fetchSubmissionState(courseId, workId) {
+        if (!this.isAuthenticated) await this.authenticate();
+        if (!this.accessToken) return "UNKNOWN";
+
+        const url = `https://classroom.googleapis.com/v1/courses/${courseId}/courseWork/${workId}/studentSubmissions`;
+
+        const data = await this.fetchJson(url, this.accessToken);
+        const list = data.studentSubmissions || [];
+
+        if (list.length > 0) {
+            return list[0].state || "UNKNOWN";
+        }
+
+        return "UNKNOWN";
+    }
+}
+function getSubmissionPrefix(state) {
+    switch (state) {
+        case "TURNED_IN":
+            return " Đã nộp – ";
+        case "RETURNED":
+            return "Đã chấm – ";
+        case "RECLAIMED_BY_STUDENT":
+            return "Nộp lại – ";
+        case "CREATED":
+        default:
+            return "Chưa nộp – ";
+    }
 }
 
-// Export for popup/pages
+
+
 window.GoogleIntegration = GoogleIntegration;

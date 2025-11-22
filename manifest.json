@@ -1,19 +1,20 @@
 {
   "manifest_version": 3,
-  "name": "Lịch Học & Làm Việc Pro",
-  "version": "3.0.0",
-  "description": "Quản lý lịch chuyên nghiệp với tích hợp Google Classroom & Calendar",
+  "name": "UTC2 Lịch Học & Làm Việc",
+  "version": "3.0.2",
+  // "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvzdmFBUDZzXfGomixvKHB/YpwwQielF5rnSO0skSVndV8OLl5d9MnFL1YE5qHmpblwAkJVRlLMmQI17FgQnwC7/TVwl8w1Qigk6gqbBajU9gNrXJGf2GvSsKsi8Jc6h6p8LJpjCkALEluTtthPd0fG323y9/R2fBiqcxZ8jGfSl6HYqVq966Ryr8BZJmCM8+hw7FLhve1CfJmIUygiAg1nE1lOlwAYHZ7ssAp9TLaHgtoAsBddb3vOzCn0LsZQwI7XUJvr428M2Efx72YsYEnOBHBKNwFmK0oy7vwzQkHfoW38YHUPmeXi7z+UHxUHINfheNSvZfIWCit58nmzG4mQIDAQAB",
+  "description": "Lịch học và làm việc thông minh dành cho sinh viên UTC2 – hỗ trợ quản lý thời gian, lịch học, lịch thi và tích hợp Google Classroom.",
   "icons": {
-    "16": "icons/icon16.png",
-    "48": "icons/icon48.png",
-    "128": "icons/icon128.png"
+    "16": "icons/logoUtc2.png",
+    "48": "icons/logoUtc2.png",
+    "128": "icons/logoUtc2.png"
   },
   "action": {
     "default_popup": "calendar.html",
     "default_icon": {
-      "16": "icons/icon16.png",
-      "48": "icons/icon48.png",
-      "128": "icons/icon128.png"
+      "16": "icons/logoUtc2.png",
+      "48": "icons/logoUtc2.png",
+      "128": "icons/logoUtc2.png"
     }
   },
   "permissions": [
@@ -23,7 +24,8 @@
     "identity"
   ],
   "oauth2": {
-    "client_id": "806570146775-9gglt0s2f7glnhakema6rv6p6aag3hfv.apps.googleusercontent.com",
+    // "client_id": "314265307613-a26ccvhpqthu84qhkcfgo9d2hc7ojubi.apps.googleusercontent.com",
+    "client_id": "314265307613-ct2163j3jdqabadct9gmsbkh3mghkok9.apps.googleusercontent.com",
     "scopes": [
       "https://www.googleapis.com/auth/classroom.courses.readonly",
       "https://www.googleapis.com/auth/classroom.coursework.me.readonly",

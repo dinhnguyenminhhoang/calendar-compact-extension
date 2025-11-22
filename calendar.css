@@ -14,23 +14,144 @@ body {
   color: #1f2937;
 }
 
-/* Compact Navigation */
-.compact-nav {
+.new-header {
+  background: #ffffff;
+  border-bottom: 1px solid #e5e7eb;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 16px;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.header-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.header-logo:hover {
+  opacity: 0.7;
+}
+
+.header-logo img {
+  border-radius: 6px;
+}
+
+.logo-text {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.header-auth {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.user-info {
+  color: #6b7280;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.user-name {
+  padding: 4px 10px;
+  background: #f3f4f6;
+  border-radius: 6px;
+  color: #374151;
+}
+
+.btn-auth {
+  padding: 6px 16px;
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+  color: #374151;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 13px;
+  transition: all 0.2s;
+}
+
+.btn-auth:hover {
+  background: #f9fafb;
+  border-color: #9ca3af;
+}
+
+/* Hàng 2: Navigation + Selection + Actions */
+.header-bottom {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  background: #fafafa;
+}
+
+.nav-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.view-selector {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 12px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  margin-left: auto;
+}
+
+.view-label {
+  color: #6b7280;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.view-select {
+  padding: 5px 10px;
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+  color: #374151;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 13px;
+  transition: all 0.2s;
+}
+
+.view-select:focus {
+  outline: none;
+  border-color: #9ca3af;
+}
+
+.view-select:hover {
+  border-color: #9ca3af;
+}
+
+.view-select option {
+  background: #ffffff;
+  color: #374151;
+}
+
+.action-buttons {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .btn-nav {
-  width: 28px;
-  height: 28px;
-  border: none;
-  background: rgba(255, 255, 255, 0.2);
-  color: white;
+  width: 32px;
+  height: 32px;
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+  color: #374151;
   border-radius: 6px;
   cursor: pointer;
   font-size: 12px;
@@ -38,23 +159,25 @@ body {
 }
 
 .btn-nav:hover {
-  background: rgba(255, 255, 255, 0.3);
+  background: #f9fafb;
+  border-color: #9ca3af;
 }
 
 .btn-today {
-  padding: 6px 12px;
-  border: none;
-  background: rgba(255, 255, 255, 0.2);
-  color: white;
+  padding: 6px 14px;
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+  color: #374151;
   border-radius: 6px;
   cursor: pointer;
   font-weight: 500;
-  font-size: 12px;
+  font-size: 13px;
   transition: all 0.2s;
 }
 
 .btn-today:hover {
-  background: rgba(255, 255, 255, 0.3);
+  background: #f9fafb;
+  border-color: #9ca3af;
 }
 
 .week-range {
@@ -62,14 +185,15 @@ body {
   font-weight: 600;
   font-size: 13px;
   text-align: center;
+  color: #1f2937;
 }
 
 .btn-icon {
-  width: 28px;
-  height: 28px;
-  border: none;
-  background: rgba(255, 255, 255, 0.2);
-  color: white;
+  width: 32px;
+  height: 32px;
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+  color: #374151;
   border-radius: 6px;
   cursor: pointer;
   font-size: 14px;
@@ -77,13 +201,14 @@ body {
 }
 
 .btn-icon:hover {
-  background: rgba(255, 255, 255, 0.3);
+  background: #f9fafb;
+  border-color: #9ca3af;
 }
 
 /* Calendar Container */
 .calendar-container {
   display: flex;
-  height: calc(100% - 48px);
+  height: calc(100% - 110px); /* Tăng từ 48px lên 110px cho header 2 tầng */
   overflow-y: auto;
   overflow-x: hidden;
   background: #ffffff;
@@ -233,13 +358,13 @@ body {
 .event-title {
   font-weight: 600;
   margin-bottom: 1px;
-  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  font-size: 13px !important;
 }
 
 .event-time {
-  font-size: 9px;
+  font-size: 11px !important;
   opacity: 0.9;
 }
 
@@ -252,7 +377,7 @@ body {
   width: 100%;
   height: 100%;
   background: rgba(0, 0, 0, 0.5);
-  z-index: 1000;
+  z-index: 3000;
   align-items: center;
   justify-content: center;
 }
@@ -602,7 +727,7 @@ body {
   background: white;
   border-radius: 8px;
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
-  z-index: 999;
+  z-index: 2000;
   min-width: 250px;
   max-width: 300px;
 }
@@ -724,4 +849,124 @@ body {
   border-radius: 50%;
   border: 2px solid white;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+.login-card {
+  max-width: 420px;
+}
+.login-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px 20px 8px;
+}
+.school-logo {
+  width: 52px;
+  height: 52px;
+  fill: #667eea;
+  margin-bottom: 8px;
+}
+.login-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1f2937;
+}
+.login-subtitle {
+  font-size: 12px;
+  color: #6b7280;
+  margin-top: 4px;
+  text-align: center;
+}
+.login-form {
+  padding: 20px;
+}
+#studentId {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+  margin-top: 6px;
+}
+#studentId:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+.student-badge {
+  margin-left: 8px;
+  padding: 3px 8px;
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+  font-size: 11px;
+  border-radius: 999px;
+  display: none;
+}
+.event-desc {
+  font-size: 11px !important;
+  opacity: 0.95;
+  margin-top: 2px;
+  line-height: 1.25;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
+}
+.calendar-event {
+  padding: 6px 8px !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15) !important;
+}
+.event-icon {
+  width: 14px;
+  height: 14px;
+  display: inline-block;
+  vertical-align: -2px;
+  margin-right: 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.2);
+  padding: 1px;
+}
+
+.current-time-guide {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 998;
+  pointer-events: none;
+  opacity: 0.9;
+}
+
+.current-time-guide::before {
+  content: attr(data-time);
+  position: absolute;
+  right: 0px;
+  z-index: 100;
+  top: -8px;
+  background: #ef4444;
+  color: white;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+.event-switch-btn {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.9);
+  color: #4b5563;
+  font-size: 11px;
+  line-height: 18px;
+  cursor: pointer;
+}
+
+.calendar-event.event-active .event-switch-btn {
+  background: #e0e7ff;
+  color: #4f46e5;
 }
